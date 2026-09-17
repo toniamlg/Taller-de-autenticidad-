@@ -30,9 +30,13 @@ Es corto porque solo coordina y ensambla los componentes. Indica un diseño modu
 
 Es un mecanismo para mantener el estado de un usuario entre diferentes peticiones. Como HTTP es un protocolo "sin estado" (stateless), cada petición es independiente; la sesión permite que el servidor reconozca al usuario sin pedirle la contraseña en cada clic.
 
+---
+
 **5.** ¿Qué es el token de sesión, cómo se genera específicamente en el código (`secrets.token_hex(16)`) y por qué es importante que sea aleatorio e impredecible?
 
 Es una cadena única que identifica la sesión activa de un usuario. Se genera con secrets.token_hex(16) creando un valor hexadecimal aleatorio de 16 bytes (32 caracteres). Es vital que sea aleatorio e impredecible para evitar que un atacante adivine un token válido e suplante a un usuario.
+
+---
 
 **6.** Describe el flujo completo cuando un usuario ingresa credenciales válidas: desde el POST al `/login` hasta que se redirige a la página home (menciona los "PASOS" del diagrama).
 
@@ -46,9 +50,13 @@ Es una cadena única que identifica la sesión activa de un usuario. Se genera c
 
 **Paso 5:** Se responde con una cookie conteniendo el token y una redirección `303` hacia `/`.
 
+---
+
 **7.** ¿Qué diferencia hay entre las rutas públicas (`/login`, `/logout`) y las privadas (`/`, `/perfil`, `/objetos`)? ¿Por qué el login debe ser necesariamente público?
 
 Las rutas públicas (/login, /logout) son accesibles por cualquiera sin autenticación. Las privadas (/, /perfil, etc.) exigen una sesión válida. El /login debe ser público porque de lo contrario un usuario no autenticado no podría ingresar para identificarse.
+
+---
 
 **8.** ¿Cómo funciona la dependencia `UsuarioDep` en FastAPI y qué hace exactamente la función `get_current_user` cuando se ejecuta en cada ruta protegida?
 
@@ -66,6 +74,8 @@ Parámetros: `max_age=VIDA_SESION_SEGUNDOS` establece el tiempo de vida en segun
 
 Sin `max_age`: La cookie se convierte en una cookie de sesión del navegador y se elimina automáticamente al cerrar la ventana/navegador.
 
+---
+
 **10.** El proyecto guarda las sesiones en un archivo `sesiones.json` en disco. Explica el flujo de lectura y escritura de este archivo: ¿cuándo se lee, cuándo se escribe y qué sucede si el disco es de solo lectura (como en Vercel)?
 
 - **Lectura:** Se lee del disco al verificar una sesión existente.
@@ -73,6 +83,8 @@ Sin `max_age`: La cookie se convierte en una cookie de sesión del navegador y s
 - **Escritura:** Se escribe al crear una nueva sesión (login) o destruirla (logout).
 
 - En entorno de solo lectura (Vercel): Intentar escribir el archivo lanzará un error de sistema de archivos (OSError / Read-only file system) o fallará en tiempo de ejecución al no poder persistir cambios.
+
+---
 
 **11.** Compara el comportamiento de las sesiones en desarrollo local vs. despliegue en Vercel. ¿Por qué en Vercel las sesiones "se pierden" cuando la función se enfría (cold start)?
 
@@ -96,11 +108,15 @@ por la analogía con los magic cookies de Unix (paquetes de datos que un program
 
 - Por qué no se usan: Para no añadir complejidad conceptual y enfocar la lección en la lógica básica de sesiones y cookies HTTP.
 
+---
+
 **13.** Las contraseñas en `usuarios.py` están en **texto plano** (`"password": "1234"`). ¿Qué riesgo de seguridad representa esto en producción y qué solución se usaría en un proyecto real?
 
 **Riesgo:** Si la base de datos o el código se filtran, los atacantes obtienen inmediatamente todas las contraseñas.
 
 **Solución real:** Aplicar un algoritmo de hashing seguro con salt (como bcrypt, Argon2 o pbkdf2) antes de almacenar la contraseña. 
+
+---
 
 **14.** ¿Qué es el "sesion hijacking" (secuestro de sesión) y qué medidas adicionales podrían implementarse para prevenirlo que este proyecto no incluye?
 Es la interceptación o robo de una cookie de sesión por parte de un atacante para suplantar a la víctima.
@@ -115,5 +131,41 @@ Medidas preventivas no incluidas: Usar atributos Secure (solo HTTPS) y HttpOnly 
 
 Se utiliza deliberadamente tras procesar una petición `POST` para forzar al navegador a realizar la redirección mediante un método `GET`. Evita el problema del reenvío de formularios al actualizar la página (el patrón PRG: Post/Redirect/Get).
 
+---
+
 **16.** Explica la diferencia semántica entre usar `GET /login` (mostrar formulario) y `POST /login` (enviar credenciales). ¿Por qué no se envían las credenciales por GET?
+
+- GET `/login`: Solicita la representación del formulario de acceso. 
+
+- POST `/login`: Envía los datos credenciales en el cuerpo (body) de la petición HTTP.
+
+- Por qué no usar GET: Los parámetros en GET viajan expuestos en la URL, quedando registrados en los historiales del navegador, proxies y logs del servidor.
+
+---
+
+## Despliegue y Configuración
+
+**17.** El proyecto utiliza `Path(__file__).parent` para ubicar las plantillas y el archivo de sesiones. ¿Por qué es importante usar rutas absolutas basadas en la ubicación del archivo en lugar de rutas relativas a la carpeta de trabajo actual?
+
+Este construye una ruta absoluta basada en la ubicación física del archivo Python actual. Esto garantiza que la aplicación encuentre las plantillas y archivos independientemente del directorio desde el cual se ejecute el comando en la terminal.
+
+---
+
+**18.** 😁 Bonus Extra: Si tuvieras que convertir este proyecto didáctico en una aplicación real para producción, enumera al menos 5 cambios que harías y justifica cada uno desde el punto de vista de seguridad, escalabilidad y mantenibilidad.
+
+- Hashing de Contraseñas: Reemplazar el texto plano por un algoritmo de hashing seguro (bcrypt o Argon2) al registrar y validar usuarios.
+
+- Base de Datos Persistente: Sustituir `sesiones.json` y el diccionario en memoria por una base de datos relacional (ej. PostgreSQL) o un almacén clave-valor rápido (ej. Redis).
+
+- Seguridad en Cookies: Añadir los flags `HttpOnly`, `Secure` y `SameSite="Lax"` a la cookie de sesión para mitigar ataques XSS y CSRF.
+
+- Manejo de Secretos y Variables de Entorno: Mover claves, tiempos de expiración y configuraciones fuera del código fuente a un archivo `.env.`
+
+- Protección contra Fuerza Bruta: Implementar rate limiting (límite de peticiones) en el endpoint `POST /login` para bloquear intentos masivos de inicio de sesión.
+
+---
+
+###### byee
+
+
 
